@@ -1,0 +1,40 @@
+{
+  "categorical": [
+    "employment_status",
+    "education",
+    "marital_status"
+  ],
+  "numerical": [
+    "age",
+    "monthly_income",
+    "loan_amount",
+    "loan_term",
+    "credit_score",
+    "existing_loans",
+    "debt_to_income"
+  ],
+  "engineered": [
+    "income_loan_ratio",
+    "monthly_payment",
+    "affordability_index",
+    "credit_utilization_score",
+    "loan_to_income_monthly"
+  ],
+  "all_features": [
+    "age",
+    "monthly_income",
+    "loan_amount",
+    "loan_term",
+    "credit_score",
+    "existing_loans",
+    "debt_to_income",
+    "employment_status_enc",
+    "education_enc",
+    "marital_status_enc",
+    "income_loan_ratio",
+    "monthly_payment",
+    "affordability_index",
+    "credit_utilization_score",
+    "loan_to_income_monthly"
+  ]
+}

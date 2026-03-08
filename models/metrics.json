@@ -1,0 +1,48 @@
+{
+  "data_source": "loan_approval_5050 (1).xlsx",
+  "raw_rows": 5050,
+  "clean_rows": 613,
+  "approval_rate": 0.5041,
+  "logistic_regression": {
+    "accuracy": 0.5041,
+    "auc": 0.4672,
+    "cv_auc": 0.537,
+    "confusion_matrix": [
+      [
+        31,
+        30
+      ],
+      [
+        31,
+        31
+      ]
+    ]
+  },
+  "random_forest": {
+    "accuracy": 0.4309,
+    "auc": 0.4278,
+    "cv_auc": 0.4636,
+    "confusion_matrix": [
+      [
+        23,
+        38
+      ],
+      [
+        32,
+        30
+      ]
+    ],
+    "top_features": {
+      "monthly_payment": 0.11014,
+      "loan_amount": 0.10187,
+      "credit_score": 0.09412,
+      "income_loan_ratio": 0.09355,
+      "monthly_income": 0.09313,
+      "credit_utilization_score": 0.08857,
+      "affordability_index": 0.08651,
+      "age": 0.0864,
+      "debt_to_income": 0.08374,
+      "loan_to_income_monthly": 0.08298
+    }
+  }
+}
