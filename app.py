@@ -62,19 +62,15 @@ h1 {
 """, unsafe_allow_html=True)
 
 # ---------------------------------------------------
-# DATABASE SETUP
+# DATABASE INITIALIZATION
 # ---------------------------------------------------
 
-def create_db():
-
+def init_db():
     conn = sqlite3.connect("loan_database.db")
     c = conn.cursor()
 
-    # DROP TABLE prevents schema mismatch errors
-    c.execute("DROP TABLE IF EXISTS loans")
-
     c.execute("""
-    CREATE TABLE loans(
+    CREATE TABLE IF NOT EXISTS loans(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         first_name TEXT,
         middle_name TEXT,
@@ -95,10 +91,10 @@ def create_db():
     conn.commit()
     conn.close()
 
-create_db()
+init_db()
 
 # ---------------------------------------------------
-# SAVE DATA
+# SAVE DATA FUNCTION
 # ---------------------------------------------------
 
 def save_to_db(first,middle,last,address,work,years,
@@ -107,12 +103,42 @@ def save_to_db(first,middle,last,address,work,years,
     conn = sqlite3.connect("loan_database.db")
     c = conn.cursor()
 
-    c.execute("""
-    INSERT INTO loans VALUES(
-        NULL,?,?,?,?,?,?,?,?,?,?,?,?
+    sql = """
+    INSERT INTO loans(
+        first_name,
+        middle_name,
+        last_name,
+        address,
+        occupation,
+        years_work,
+        gender,
+        married,
+        dependents,
+        income,
+        loan,
+        credit,
+        prediction
     )
-    """,(first,middle,last,address,work,years,
-         gender,married,dependents,income,loan,credit,prediction))
+    VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+    """
+
+    values = (
+        first,
+        middle,
+        last,
+        address,
+        work,
+        years,
+        gender,
+        married,
+        dependents,
+        income,
+        loan,
+        credit,
+        prediction
+    )
+
+    c.execute(sql, values)
 
     conn.commit()
     conn.close()
@@ -174,7 +200,6 @@ if menu == "Loan Prediction":
 
     if st.button("Predict Loan Approval"):
 
-        # Simple rule prediction
         if credit_history == 1 and applicant_income > 3000:
             result = "Approved"
             st.success("Loan Approved ✅")
@@ -188,7 +213,6 @@ if menu == "Loan Prediction":
             loan_amount,credit_history,result
         )
 
-        # Risk Score
         risk = np.random.randint(40,95)
 
         st.subheader("Loan Risk Score")
