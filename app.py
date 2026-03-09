@@ -192,7 +192,7 @@ if menu == "Loan Prediction":
 
     with col1:
         applicant_income = st.number_input("Applicant Income",0.0,100000.0,5000.0)
-        loan_amount = st.number_input("Loan Amount",10.0,1000.0,150.0)
+        loan_amount = st.number_input("Loan Amount",10.0,2000.0,150.0)
 
     with col2:
         credit_history = st.selectbox("Credit History",[1,0])
