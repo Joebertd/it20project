@@ -123,19 +123,8 @@ def save_to_db(first,middle,last,address,work,years,
     """
 
     values = (
-        first,
-        middle,
-        last,
-        address,
-        work,
-        years,
-        gender,
-        married,
-        dependents,
-        income,
-        loan,
-        credit,
-        prediction
+        first,middle,last,address,work,years,
+        gender,married,dependents,income,loan,credit,prediction
     )
 
     c.execute(sql, values)
@@ -216,13 +205,11 @@ if menu == "Loan Prediction":
         risk = np.random.randint(40,95)
 
         st.subheader("Loan Risk Score")
-
         st.progress(risk/100)
-
         st.write(f"Risk Score: {risk}/100")
 
 # ---------------------------------------------------
-# CSV BATCH PREDICTION
+# CSV BATCH PREDICTION WITH AUTO COLUMN DETECTION
 # ---------------------------------------------------
 
 if menu == "Batch Prediction (CSV)":
@@ -235,24 +222,42 @@ if menu == "Batch Prediction (CSV)":
 
         df = pd.read_csv(file)
 
+        st.subheader("Uploaded Dataset")
         st.dataframe(df)
 
-        df["Prediction"] = np.where(
-            (df["Credit_History"]==1) &
-            (df["ApplicantIncome"]>3000),
-            "Approved",
-            "Rejected"
-        )
+        # normalize column names
+        df.columns = df.columns.str.strip().str.lower()
 
-        st.subheader("Prediction Results")
+        credit_col = None
+        income_col = None
 
-        st.dataframe(df)
+        for col in df.columns:
+            if "credit" in col:
+                credit_col = col
+            if "income" in col or "salary" in col:
+                income_col = col
 
-        st.download_button(
-            "Download Results",
-            df.to_csv(index=False),
-            "loan_predictions.csv"
-        )
+        if credit_col and income_col:
+
+            df["prediction"] = np.where(
+                (df[credit_col] == 1) &
+                (df[income_col] > 3000),
+                "Approved",
+                "Rejected"
+            )
+
+            st.subheader("Prediction Results")
+            st.dataframe(df)
+
+            st.download_button(
+                "Download Results",
+                df.to_csv(index=False),
+                "loan_predictions.csv"
+            )
+
+        else:
+
+            st.error("CSV must contain a credit column and income column.")
 
 # ---------------------------------------------------
 # ANALYTICS DASHBOARD
@@ -290,7 +295,6 @@ if menu == "Analytics Dashboard":
         st.bar_chart(chart.set_index("Status"))
 
         st.subheader("Applicant Records")
-
         st.dataframe(df)
 
     else:
