@@ -96,7 +96,7 @@ def init_db():
 init_db()
 
 # ---------------------------------------------------
-# SAVE RECORD
+# SAVE FUNCTION
 # ---------------------------------------------------
 
 def save_to_db(first,middle,last,address,work,years,
@@ -187,6 +187,8 @@ if menu == "Loan Prediction":
             gender,married,dependents,income,loan,credit,result
         )
 
+        # AI Probability Gauge
+
         st.subheader("AI Approval Probability")
 
         fig = go.Figure(go.Indicator(
@@ -206,7 +208,7 @@ if menu == "Loan Prediction":
         st.plotly_chart(fig)
 
 # ---------------------------------------------------
-# BATCH CSV PREDICTION
+# CSV BATCH PREDICTION
 # ---------------------------------------------------
 
 if menu == "Batch Prediction (CSV)":
@@ -251,6 +253,47 @@ if menu == "Batch Prediction (CSV)":
             st.subheader("Prediction Results")
             st.dataframe(df)
 
+            conn = sqlite3.connect("loan_database.db")
+            cursor = conn.cursor()
+
+            for _,row in df.iterrows():
+
+                cursor.execute("""
+                INSERT INTO loans(
+                    first_name,middle_name,last_name,address,
+                    occupation,years_work,gender,married,
+                    dependents,income,loan,credit,prediction
+                )
+                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
+                """,(
+
+                    row.get("first_name",""),
+                    row.get("middle_name",""),
+                    row.get("last_name",""),
+                    row.get("address",""),
+                    row.get("occupation",""),
+                    row.get("years_work",0),
+                    row.get("gender",""),
+                    row.get("married",""),
+                    row.get("dependents",0),
+                    row.get(income_col,0),
+                    row.get(loan_col,0),
+                    row.get(credit_col,0),
+                    row["prediction"]
+
+                ))
+
+            conn.commit()
+            conn.close()
+
+            st.success("Batch results saved to database")
+
+            st.download_button(
+                "Download Results",
+                df.to_csv(index=False),
+                "loan_predictions.csv"
+            )
+
 # ---------------------------------------------------
 # ANALYTICS DASHBOARD
 # ---------------------------------------------------
@@ -291,6 +334,10 @@ if menu == "Analytics Dashboard":
         st.subheader("Records")
         st.dataframe(df)
 
+    else:
+
+        st.info("No records yet")
+
 # ---------------------------------------------------
 # MODEL INSIGHTS
 # ---------------------------------------------------
@@ -301,30 +348,8 @@ if menu == "Model Insights":
 
     data = pd.read_csv("loan_data_clean.csv")
 
-    data.columns = data.columns.str.lower()
-
-    target_col = None
-
-    for col in data.columns:
-        if "status" in col or "approved" in col:
-            target_col = col
-            break
-
-    if target_col is None:
-        st.error("Target column not found")
-        st.stop()
-
-    st.success(f"Detected target column: {target_col}")
-
-    # SAFE DROP OF TEXT COLUMNS
-    drop_candidates = ["employment_status","education","marital_status"]
-
-    drop_cols = [c for c in drop_candidates if c in data.columns]
-
-    data = data.drop(columns=drop_cols)
-
-    X = data.drop(columns=[target_col])
-    y = data[target_col]
+    X = data.drop("Loan_Status",axis=1)
+    y = data["Loan_Status"]
 
     pred = model.predict(X)
 
@@ -339,7 +364,12 @@ if menu == "Model Insights":
     sns.heatmap(cm,
                 annot=True,
                 fmt="d",
-                cmap="Blues")
+                cmap="Blues",
+                xticklabels=["Rejected","Approved"],
+                yticklabels=["Rejected","Approved"])
+
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
 
     st.pyplot(fig)
 
@@ -353,7 +383,7 @@ if menu == "Model Insights":
 
         df_imp = pd.DataFrame({
             "Feature":features,
-            "Importance":importance[:len(features)]
+            "Importance":importance
         })
 
         df_imp = df_imp.sort_values("Importance",ascending=False)
