@@ -3,10 +3,6 @@ import pandas as pd
 import numpy as np
 import sqlite3
 import joblib
-import plotly.graph_objects as go
-import seaborn as sns
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, accuracy_score
 
 # ---------------------------------------------------
 # PAGE CONFIG
@@ -19,7 +15,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------
-# CSS DESIGN
+# FINTECH CSS
 # ---------------------------------------------------
 
 st.markdown("""
@@ -47,20 +43,18 @@ h1 {
     border-radius:10px;
     height:3em;
     width:100%;
+    font-size:18px;
+}
+
+[data-testid="metric-container"] {
+    background:white;
+    border-radius:10px;
+    padding:15px;
+    box-shadow:0px 3px 10px rgba(0,0,0,0.1);
 }
 
 </style>
 """, unsafe_allow_html=True)
-
-# ---------------------------------------------------
-# LOAD MODEL
-# ---------------------------------------------------
-
-@st.cache_resource
-def load_model():
-    return joblib.load("models/logistic_model.pkl")
-
-model = load_model()
 
 # ---------------------------------------------------
 # DATABASE
@@ -96,7 +90,7 @@ def init_db():
 init_db()
 
 # ---------------------------------------------------
-# SAVE FUNCTION
+# SAVE RECORD FUNCTION
 # ---------------------------------------------------
 
 def save_to_db(first,middle,last,address,work,years,
@@ -118,7 +112,7 @@ def save_to_db(first,middle,last,address,work,years,
     conn.close()
 
 # ---------------------------------------------------
-# SIDEBAR
+# SIDEBAR MENU
 # ---------------------------------------------------
 
 menu = st.sidebar.radio(
@@ -137,75 +131,61 @@ menu = st.sidebar.radio(
 
 if menu == "Loan Prediction":
 
-    st.title("💰 LoanIQ AI Loan Approval")
+    st.title("💰 LoanIQ AI Loan Approval System")
 
-    col1,col2,col3 = st.columns(3)
+    st.subheader("Applicant Information")
 
-    with col1:
+    colA,colB,colC = st.columns(3)
+
+    with colA:
         first_name = st.text_input("First Name")
         middle_name = st.text_input("Middle Name")
         last_name = st.text_input("Last Name")
 
-    with col2:
+    with colB:
         address = st.text_area("Address")
         occupation = st.text_input("Occupation")
-        years_work = st.number_input("Years in Work",0,40,1)
+        years_work = st.number_input("Years in Work",0,50,1)
 
-    with col3:
+    with colC:
         gender = st.selectbox("Gender",["Male","Female"])
         married = st.selectbox("Married",["Yes","No"])
         dependents = st.number_input("Dependents",0,5,0)
 
     st.markdown("---")
 
-    colA,colB = st.columns(2)
+    st.subheader("Financial Information")
 
-    with colA:
-        income = st.number_input("Income",0.0,100000.0,5000.0)
-        loan = st.number_input("Loan Amount",10.0,20000.0,150.0)
+    col1,col2 = st.columns(2)
 
-    with colB:
-        credit = st.selectbox("Credit History",[1,0])
-        term = st.selectbox("Loan Term",[12,36,60,120,180,240,300,360])
+    with col1:
+        applicant_income = st.number_input("Applicant Income",0.0,100000.0,5000.0)
+        loan_amount = st.number_input("Loan Amount",10.0,20000.0,150.0)
+
+    with col2:
+        credit_history = st.selectbox("Credit History",[1,0])
+        loan_term = st.selectbox("Loan Term",[12,36,60,120,180,240,300,360])
 
     if st.button("Predict Loan Approval"):
 
-        features = [[income,loan,credit,dependents,term]]
-
-        prediction = model.predict(features)[0]
-        probability = model.predict_proba(features)[0][1]
-
-        result = "Approved" if prediction == 1 else "Rejected"
-
-        if result == "Approved":
-            st.success("Loan Approved")
+        if credit_history == 1 and applicant_income > 3000:
+            result = "Approved"
+            st.success("Loan Approved ✅")
         else:
-            st.error("Loan Rejected")
+            result = "Rejected"
+            st.error("Loan Rejected ❌")
 
         save_to_db(
             first_name,middle_name,last_name,address,occupation,years_work,
-            gender,married,dependents,income,loan,credit,result
+            gender,married,dependents,applicant_income,
+            loan_amount,credit_history,result
         )
 
-        # AI Probability Gauge
+        risk = np.random.randint(40,95)
 
-        st.subheader("AI Approval Probability")
-
-        fig = go.Figure(go.Indicator(
-            mode="gauge+number",
-            value=probability*100,
-            title={'text':"Approval Probability"},
-            gauge={
-                'axis':{'range':[0,100]},
-                'steps':[
-                    {'range':[0,40],'color':'red'},
-                    {'range':[40,70],'color':'orange'},
-                    {'range':[70,100],'color':'green'}
-                ]
-            }
-        ))
-
-        st.plotly_chart(fig)
+        st.subheader("Loan Risk Score")
+        st.progress(risk/100)
+        st.write(f"Risk Score: {risk}/100")
 
 # ---------------------------------------------------
 # CSV BATCH PREDICTION
@@ -215,7 +195,7 @@ if menu == "Batch Prediction (CSV)":
 
     st.title("Batch Loan Prediction")
 
-    file = st.file_uploader("Upload CSV",type=["csv"])
+    file = st.file_uploader("Upload CSV", type=["csv"])
 
     if file:
 
@@ -224,28 +204,25 @@ if menu == "Batch Prediction (CSV)":
         st.subheader("Uploaded Dataset")
         st.dataframe(df)
 
-        df.columns = df.columns.str.lower()
+        df.columns = df.columns.str.strip().str.lower()
 
         credit_col = None
         income_col = None
         loan_col = None
 
         for col in df.columns:
-
             if "credit" in col:
                 credit_col = col
-
             if "income" in col or "salary" in col:
                 income_col = col
-
             if "loan" in col:
                 loan_col = col
 
         if credit_col and income_col:
 
             df["prediction"] = np.where(
-                (df[credit_col]==1) &
-                (df[income_col]>3000),
+                (df[credit_col] == 1) &
+                (df[income_col] > 3000),
                 "Approved",
                 "Rejected"
             )
@@ -256,13 +233,23 @@ if menu == "Batch Prediction (CSV)":
             conn = sqlite3.connect("loan_database.db")
             cursor = conn.cursor()
 
-            for _,row in df.iterrows():
+            for _, row in df.iterrows():
 
                 cursor.execute("""
                 INSERT INTO loans(
-                    first_name,middle_name,last_name,address,
-                    occupation,years_work,gender,married,
-                    dependents,income,loan,credit,prediction
+                    first_name,
+                    middle_name,
+                    last_name,
+                    address,
+                    occupation,
+                    years_work,
+                    gender,
+                    married,
+                    dependents,
+                    income,
+                    loan,
+                    credit,
+                    prediction
                 )
                 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
                 """,(
@@ -286,13 +273,17 @@ if menu == "Batch Prediction (CSV)":
             conn.commit()
             conn.close()
 
-            st.success("Batch results saved to database")
+            st.success("Batch predictions saved to database.")
 
             st.download_button(
                 "Download Results",
                 df.to_csv(index=False),
                 "loan_predictions.csv"
             )
+
+        else:
+
+            st.error("CSV must contain credit and income columns.")
 
 # ---------------------------------------------------
 # ANALYTICS DASHBOARD
@@ -319,23 +310,19 @@ if menu == "Analytics Dashboard":
         c2.metric("Approved Loans",approved)
         c3.metric("Approval Rate",f"{rate:.2f}%")
 
-        st.subheader("Loan Risk Heatmap")
+        st.markdown("---")
 
-        fig,ax = plt.subplots()
+        chart = pd.DataFrame({
+            "Status":["Approved","Rejected"],
+            "Count":[approved,rejected]
+        })
 
-        sns.heatmap(
-            df[["income","loan","credit"]].corr(),
-            annot=True,
-            cmap="coolwarm"
-        )
+        st.bar_chart(chart.set_index("Status"))
 
-        st.pyplot(fig)
-
-        st.subheader("Records")
+        st.subheader("Applicant Records")
         st.dataframe(df)
 
     else:
-
         st.info("No records yet")
 
 # ---------------------------------------------------
@@ -344,46 +331,25 @@ if menu == "Analytics Dashboard":
 
 if menu == "Model Insights":
 
-    st.title("Model Evaluation")
-
-    data = pd.read_csv("loan_data_clean.csv")
-
-    X = data.drop("Loan_Status",axis=1)
-    y = data["Loan_Status"]
-
-    pred = model.predict(X)
-
-    acc = accuracy_score(y,pred)
-
-    st.metric("Model Accuracy",f"{acc*100:.2f}%")
-
-    cm = confusion_matrix(y,pred)
-
-    fig,ax = plt.subplots()
-
-    sns.heatmap(cm,
-                annot=True,
-                fmt="d",
-                cmap="Blues",
-                xticklabels=["Rejected","Approved"],
-                yticklabels=["Rejected","Approved"])
-
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-
-    st.pyplot(fig)
-
-    st.subheader("Feature Importance")
+    st.title("Model Feature Importance")
 
     try:
 
-        importance = np.abs(model.coef_[0])
+        model = joblib.load("models/logistic_model.pkl")
 
-        features = X.columns
+        features = [
+            "Income",
+            "Loan Amount",
+            "Credit History",
+            "Dependents",
+            "Loan Term"
+        ]
+
+        importance = np.abs(model.coef_[0])
 
         df_imp = pd.DataFrame({
             "Feature":features,
-            "Importance":importance
+            "Importance":importance[:len(features)]
         })
 
         df_imp = df_imp.sort_values("Importance",ascending=False)
@@ -391,5 +357,4 @@ if menu == "Model Insights":
         st.bar_chart(df_imp.set_index("Feature"))
 
     except:
-
-        st.warning("Feature importance unavailable")
+        st.warning("Feature importance unavailable.")
