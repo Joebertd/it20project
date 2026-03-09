@@ -342,62 +342,39 @@ if menu == "Analytics Dashboard":
 # MODEL INSIGHTS
 # ---------------------------------------------------
 
-# ---------------------------------------------------
-# MODEL INSIGHTS
-# ---------------------------------------------------
-
 if menu == "Model Insights":
 
     st.title("Model Evaluation")
 
-    try:
-        data = pd.read_csv("loan_data_clean.csv")
-    except:
-        st.error("Dataset loan_data_clean.csv not found.")
-        st.stop()
+    data = pd.read_csv("loan_data_clean.csv")
 
     # normalize column names
     data.columns = data.columns.str.strip().str.lower()
 
     st.write("Detected Dataset Columns:", list(data.columns))
 
-    # possible target names
-    possible_targets = [
-        "loan_status",
-        "status",
-        "approved",
-        "loanapproved",
-        "target",
-        "label"
-    ]
-
+    # detect target column
     target_col = None
 
     for col in data.columns:
-        if col in possible_targets:
+        if "status" in col or "approved" in col:
             target_col = col
             break
 
-    # fallback detection
     if target_col is None:
-        for col in data.columns:
-            if "status" in col or "approved" in col:
-                target_col = col
-                break
-
-    if target_col is None:
-
-        st.error("Could not detect target column in dataset.")
-        st.info("Please ensure your dataset contains something like:")
-        st.code("""
-Loan_Status
-loan_status
-approved
-status
-        """)
+        st.error("Target column not found in dataset.")
         st.stop()
 
     st.success(f"Detected target column: {target_col}")
+
+    # remove categorical text columns
+    drop_cols = [
+        "employment_status",
+        "education",
+        "marital_status"
+    ]
+
+    data = data.drop(columns=[c for c in drop_cols if c in data.columns])
 
     # split features and labels
     X = data.drop(columns=[target_col])
@@ -420,8 +397,8 @@ status
             annot=True,
             fmt="d",
             cmap="Blues",
-            xticklabels=["Rejected", "Approved"],
-            yticklabels=["Rejected", "Approved"]
+            xticklabels=["Rejected","Approved"],
+            yticklabels=["Rejected","Approved"]
         )
 
         plt.xlabel("Predicted")
@@ -434,7 +411,10 @@ status
         st.error("Model prediction failed.")
         st.write(e)
 
+    # ---------------------------------------------------
     # FEATURE IMPORTANCE
+    # ---------------------------------------------------
+
     st.subheader("Feature Importance")
 
     try:
