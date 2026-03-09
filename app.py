@@ -96,7 +96,7 @@ def init_db():
 init_db()
 
 # ---------------------------------------------------
-# SAVE RECORD FUNCTION
+# SAVE RECORD
 # ---------------------------------------------------
 
 def save_to_db(first,middle,last,address,work,years,
@@ -187,8 +187,6 @@ if menu == "Loan Prediction":
             gender,married,dependents,income,loan,credit,result
         )
 
-        # AI Probability Gauge
-
         st.subheader("AI Approval Probability")
 
         fig = go.Figure(go.Indicator(
@@ -208,7 +206,7 @@ if menu == "Loan Prediction":
         st.plotly_chart(fig)
 
 # ---------------------------------------------------
-# CSV BATCH PREDICTION
+# BATCH CSV PREDICTION
 # ---------------------------------------------------
 
 if menu == "Batch Prediction (CSV)":
@@ -253,47 +251,6 @@ if menu == "Batch Prediction (CSV)":
             st.subheader("Prediction Results")
             st.dataframe(df)
 
-            conn = sqlite3.connect("loan_database.db")
-            cursor = conn.cursor()
-
-            for _,row in df.iterrows():
-
-                cursor.execute("""
-                INSERT INTO loans(
-                    first_name,middle_name,last_name,address,
-                    occupation,years_work,gender,married,
-                    dependents,income,loan,credit,prediction
-                )
-                VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)
-                """,(
-
-                    row.get("first_name",""),
-                    row.get("middle_name",""),
-                    row.get("last_name",""),
-                    row.get("address",""),
-                    row.get("occupation",""),
-                    row.get("years_work",0),
-                    row.get("gender",""),
-                    row.get("married",""),
-                    row.get("dependents",0),
-                    row.get(income_col,0),
-                    row.get(loan_col,0),
-                    row.get(credit_col,0),
-                    row["prediction"]
-
-                ))
-
-            conn.commit()
-            conn.close()
-
-            st.success("Batch results saved to database")
-
-            st.download_button(
-                "Download Results",
-                df.to_csv(index=False),
-                "loan_predictions.csv"
-            )
-
 # ---------------------------------------------------
 # ANALYTICS DASHBOARD
 # ---------------------------------------------------
@@ -334,10 +291,6 @@ if menu == "Analytics Dashboard":
         st.subheader("Records")
         st.dataframe(df)
 
-    else:
-
-        st.info("No records yet")
-
 # ---------------------------------------------------
 # MODEL INSIGHTS
 # ---------------------------------------------------
@@ -348,12 +301,8 @@ if menu == "Model Insights":
 
     data = pd.read_csv("loan_data_clean.csv")
 
-    # normalize column names
-    data.columns = data.columns.str.strip().str.lower()
+    data.columns = data.columns.str.lower()
 
-    st.write("Detected Dataset Columns:", list(data.columns))
-
-    # detect target column
     target_col = None
 
     for col in data.columns:
@@ -362,58 +311,37 @@ if menu == "Model Insights":
             break
 
     if target_col is None:
-        st.error("Target column not found in dataset.")
+        st.error("Target column not found")
         st.stop()
 
     st.success(f"Detected target column: {target_col}")
 
-    # remove categorical text columns
-    drop_cols = [
-        "employment_status",
-        "education",
-        "marital_status"
-    ]
+    # SAFE DROP OF TEXT COLUMNS
+    drop_candidates = ["employment_status","education","marital_status"]
 
-    data = data.drop(columns=[c for c in drop_cols if c in data.columns])
+    drop_cols = [c for c in drop_candidates if c in data.columns]
 
-    # split features and labels
+    data = data.drop(columns=drop_cols)
+
     X = data.drop(columns=[target_col])
     y = data[target_col]
 
-    try:
+    pred = model.predict(X)
 
-        pred = model.predict(X)
+    acc = accuracy_score(y,pred)
 
-        acc = accuracy_score(y, pred)
+    st.metric("Model Accuracy",f"{acc*100:.2f}%")
 
-        st.metric("Model Accuracy", f"{acc*100:.2f}%")
+    cm = confusion_matrix(y,pred)
 
-        cm = confusion_matrix(y, pred)
+    fig,ax = plt.subplots()
 
-        fig, ax = plt.subplots()
+    sns.heatmap(cm,
+                annot=True,
+                fmt="d",
+                cmap="Blues")
 
-        sns.heatmap(
-            cm,
-            annot=True,
-            fmt="d",
-            cmap="Blues",
-            xticklabels=["Rejected","Approved"],
-            yticklabels=["Rejected","Approved"]
-        )
-
-        plt.xlabel("Predicted")
-        plt.ylabel("Actual")
-
-        st.pyplot(fig)
-
-    except Exception as e:
-
-        st.error("Model prediction failed.")
-        st.write(e)
-
-    # ---------------------------------------------------
-    # FEATURE IMPORTANCE
-    # ---------------------------------------------------
+    st.pyplot(fig)
 
     st.subheader("Feature Importance")
 
@@ -424,13 +352,14 @@ if menu == "Model Insights":
         features = X.columns
 
         df_imp = pd.DataFrame({
-            "Feature": features,
-            "Importance": importance[:len(features)]
+            "Feature":features,
+            "Importance":importance[:len(features)]
         })
 
-        df_imp = df_imp.sort_values("Importance", ascending=False)
+        df_imp = df_imp.sort_values("Importance",ascending=False)
 
         st.bar_chart(df_imp.set_index("Feature"))
 
     except:
-        st.warning("Feature importance unavailable for this model.")
+
+        st.warning("Feature importance unavailable")
