@@ -342,70 +342,115 @@ if menu == "Analytics Dashboard":
 # MODEL INSIGHTS
 # ---------------------------------------------------
 
+# ---------------------------------------------------
+# MODEL INSIGHTS
+# ---------------------------------------------------
+
 if menu == "Model Insights":
 
     st.title("Model Evaluation")
 
-    data = pd.read_csv("loan_data_clean.csv")
+    try:
+        data = pd.read_csv("loan_data_clean.csv")
+    except:
+        st.error("Dataset loan_data_clean.csv not found.")
+        st.stop()
 
-    data.columns = data.columns.str.lower()
+    # normalize column names
+    data.columns = data.columns.str.strip().str.lower()
+
+    st.write("Detected Dataset Columns:", list(data.columns))
+
+    # possible target names
+    possible_targets = [
+        "loan_status",
+        "status",
+        "approved",
+        "loanapproved",
+        "target",
+        "label"
+    ]
 
     target_col = None
 
     for col in data.columns:
-
-        if "status" in col or "approved" in col:
+        if col in possible_targets:
             target_col = col
             break
 
+    # fallback detection
+    if target_col is None:
+        for col in data.columns:
+            if "status" in col or "approved" in col:
+                target_col = col
+                break
+
     if target_col is None:
 
-        st.error("Target column not found in dataset")
+        st.error("Could not detect target column in dataset.")
+        st.info("Please ensure your dataset contains something like:")
+        st.code("""
+Loan_Status
+loan_status
+approved
+status
+        """)
+        st.stop()
 
-    else:
+    st.success(f"Detected target column: {target_col}")
 
-        X = data.drop(target_col,axis=1)
-        y = data[target_col]
+    # split features and labels
+    X = data.drop(columns=[target_col])
+    y = data[target_col]
+
+    try:
 
         pred = model.predict(X)
 
-        acc = accuracy_score(y,pred)
+        acc = accuracy_score(y, pred)
 
-        st.metric("Model Accuracy",f"{acc*100:.2f}%")
+        st.metric("Model Accuracy", f"{acc*100:.2f}%")
 
-        cm = confusion_matrix(y,pred)
+        cm = confusion_matrix(y, pred)
 
-        fig,ax = plt.subplots()
+        fig, ax = plt.subplots()
 
-        sns.heatmap(cm,
-                    annot=True,
-                    fmt="d",
-                    cmap="Blues",
-                    xticklabels=["Rejected","Approved"],
-                    yticklabels=["Rejected","Approved"])
+        sns.heatmap(
+            cm,
+            annot=True,
+            fmt="d",
+            cmap="Blues",
+            xticklabels=["Rejected", "Approved"],
+            yticklabels=["Rejected", "Approved"]
+        )
 
         plt.xlabel("Predicted")
         plt.ylabel("Actual")
 
         st.pyplot(fig)
 
-        st.subheader("Feature Importance")
+    except Exception as e:
 
-        try:
+        st.error("Model prediction failed.")
+        st.write(e)
 
-            importance = np.abs(model.coef_[0])
+    # FEATURE IMPORTANCE
+    st.subheader("Feature Importance")
 
-            features = X.columns
+    try:
 
-            df_imp = pd.DataFrame({
-                "Feature":features,
-                "Importance":importance
-            })
+        importance = np.abs(model.coef_[0])
 
-            df_imp = df_imp.sort_values("Importance",ascending=False)
+        features = X.columns
 
-            st.bar_chart(df_imp.set_index("Feature"))
+        df_imp = pd.DataFrame({
+            "Feature": features,
+            "Importance": importance[:len(features)]
+        })
 
-        except:
+        df_imp = df_imp.sort_values("Importance", ascending=False)
 
-            st.warning("Feature importance unavailable")
+        st.bar_chart(df_imp.set_index("Feature"))
+
+    except:
+        st.warning("Feature importance unavailable for this model.")
