@@ -96,7 +96,7 @@ def init_db():
 init_db()
 
 # ---------------------------------------------------
-# SAVE FUNCTION
+# SAVE RECORD FUNCTION
 # ---------------------------------------------------
 
 def save_to_db(first,middle,last,address,work,years,
@@ -348,48 +348,64 @@ if menu == "Model Insights":
 
     data = pd.read_csv("loan_data_clean.csv")
 
-    X = data.drop("Loan_Status",axis=1)
-    y = data["Loan_Status"]
+    data.columns = data.columns.str.lower()
 
-    pred = model.predict(X)
+    target_col = None
 
-    acc = accuracy_score(y,pred)
+    for col in data.columns:
 
-    st.metric("Model Accuracy",f"{acc*100:.2f}%")
+        if "status" in col or "approved" in col:
+            target_col = col
+            break
 
-    cm = confusion_matrix(y,pred)
+    if target_col is None:
 
-    fig,ax = plt.subplots()
+        st.error("Target column not found in dataset")
 
-    sns.heatmap(cm,
-                annot=True,
-                fmt="d",
-                cmap="Blues",
-                xticklabels=["Rejected","Approved"],
-                yticklabels=["Rejected","Approved"])
+    else:
 
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
+        X = data.drop(target_col,axis=1)
+        y = data[target_col]
 
-    st.pyplot(fig)
+        pred = model.predict(X)
 
-    st.subheader("Feature Importance")
+        acc = accuracy_score(y,pred)
 
-    try:
+        st.metric("Model Accuracy",f"{acc*100:.2f}%")
 
-        importance = np.abs(model.coef_[0])
+        cm = confusion_matrix(y,pred)
 
-        features = X.columns
+        fig,ax = plt.subplots()
 
-        df_imp = pd.DataFrame({
-            "Feature":features,
-            "Importance":importance
-        })
+        sns.heatmap(cm,
+                    annot=True,
+                    fmt="d",
+                    cmap="Blues",
+                    xticklabels=["Rejected","Approved"],
+                    yticklabels=["Rejected","Approved"])
 
-        df_imp = df_imp.sort_values("Importance",ascending=False)
+        plt.xlabel("Predicted")
+        plt.ylabel("Actual")
 
-        st.bar_chart(df_imp.set_index("Feature"))
+        st.pyplot(fig)
 
-    except:
+        st.subheader("Feature Importance")
 
-        st.warning("Feature importance unavailable")
+        try:
+
+            importance = np.abs(model.coef_[0])
+
+            features = X.columns
+
+            df_imp = pd.DataFrame({
+                "Feature":features,
+                "Importance":importance
+            })
+
+            df_imp = df_imp.sort_values("Importance",ascending=False)
+
+            st.bar_chart(df_imp.set_index("Feature"))
+
+        except:
+
+            st.warning("Feature importance unavailable")
